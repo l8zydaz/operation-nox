@@ -66,10 +66,13 @@ Raspberry Pi 5 (Target Endpoint)
 
 ### Gap Evidence
 The target endpoint was configured with a local account `jsmith` using the password `password` — ranked among the top 10 most common passwords globally. Password authentication over SSH was explicitly enabled in `/etc/ssh/sshd_config`, providing an exposed attack surface on port 22.
+
 ![Account overview](assets/account-overview.png)
 *Figure 3: Weak user accounts identified on target endpoint — gap evidence*
+
 ![Password Authentication SSHd Config](assets/post-password-auth.png)
 *Figure 4: Password authentication explicitly enabled over SSH — exposed attack surface on port 22*
+
 ### Attack Execution
 Hydra was used to perform an automated credential attack against the SSH service using the rockyou.txt wordlist — a 14 million entry dictionary derived from real-world breach data.
 
@@ -78,8 +81,11 @@ hydra -l jsmith -P /usr/share/SecLists/Passwords/Leaked-Databases/rockyou.txt ss
 ```
 
 The password `password` was successfully identified within seconds of launching the attack.
+
 ![Hydra Run and Results](assets/hydra-crack.png)
+
 *Figure 5: Hydra credential attack success — jsmith password cracked using rockyou.txt wordlist (T1110.001)*
+
 ### Detection
 Wazuh successfully detected the brute force pattern through repeated failed authentication events forwarded via the systemd journal.
 
@@ -88,8 +94,10 @@ Wazuh successfully detected the brute force pattern through repeated failed auth
 - **Rule 2502** — syslog: User missed the password more than one time
 - **Rule 5758** — Maximum authentication attempts exceeded
 - **Rule 40111** — Multiple authentication failures (brute force correlation)
+
 ![Brute Force Detection](assets/brute-force-detection.png)
 *Figure 6: Wazuh detecting brute force pattern — rules 5503, 2501, 2502, 5758, 40111 fired in real time*
+
 ### Mitigation
 **MITRE:** M1042 — Disable or Remove Feature or Program
 **MITRE:** M1032 — Multi-factor Authentication
@@ -104,8 +112,10 @@ PasswordAuthentication no
 2. Enforce strong password policy — minimum 12 characters
 3. Tune Fail2ban to ban after 3 failures
 4. Deploy MFA as second layer of defense
+
 ![Password Authentication Fix](assets/sshd_config-fix.png)
 *Figure 9: Password authentication disabled — SSH now enforces key-based authentication only*
+
 ![SSH Password Refusal](assets/ssh-connection-refuse.png)
 *Figure 10: SSH connection refused confirming successful remediation of Finding 1*
 
@@ -119,8 +129,10 @@ PasswordAuthentication no
 
 ### Gap Evidence
 The compromised account `jsmith` was a member of the `sudo` group — granting full administrative privileges without justification. This over-privileged configuration allowed an attacker to create new system accounts without additional exploitation.
+
 ![Sudo Group Overview](assets/jsmith-sudo.png)
 *Figure 11: jsmith confirmed as over-privileged sudo group member — misconfiguration enabling lateral movement*
+
 ### Attack Execution
 After gaining access via cracked credentials, a backdoor account was created using native Linux tooling — no additional malware required.
 
@@ -131,6 +143,7 @@ sudo passwd backdoor
 ```
 ![Successful SSH - jsmith](assets/ssh-jsmith.png)
 *Figure 11: Attacker authenticated as jsmith following successful credential attack*
+
 ![Local account creation & password change - jsmith](assets/backdoor-creation.png)
 *Figure 12: Backdoor account created using useradd — no malware required (T1136.001)*
 
@@ -140,8 +153,10 @@ Wazuh detected the new account creation through systemd journal forwarding.
 - **Rule 5901** — New user added to the system
 ![Wazuh alert - account creation (row view)](assets/account-creation1.png)
 *Figure 13: Wazuh detecting new account creation via systemd journal forwarding — rule 5901*
+
 ![Wazuh alert - account creation (opened alert)](assets/account-creation2.png)
 *Figure 14: Full alert detail — account creation event with timestamp, rule, and agent context*
+
 ### Mitigation
 **MITRE:** M1026 — Privileged Account Management
 **MITRE:** M1018 — User Account Management
@@ -163,6 +178,7 @@ sudo userdel -r backdoor
 4. Implement PAM restrictions on account creation
 ![Sudo removal - jsmith](assets/sudo-removal-jsmith.png)
 *Figure 15: jsmith sudo privileges revoked — principle of least privilege enforced*
+
 ![Local account removal (backdoor)](assets/backdoor-account-removal.png)
 *Figure 16: Backdoor account successfully removed from target endpoint — Finding 2 remediated*
 
@@ -178,6 +194,7 @@ sudo userdel -r backdoor
 Following successful access, the attacker had unrestricted ability to modify crontabs. No restrictions existed on `/var/spool/cron` and no alerting was configured for crontab modifications prior to this exercise.
 ![Crontab baseline](assets/empty-cron.png)
 *Figure 17: Crontab baseline — no restrictions preventing unauthorized cron job creation*
+
 ### Attack Execution
 A malicious cron job was injected to simulate persistent callback behavior — running every minute automatically regardless of user login state.
 
@@ -190,6 +207,7 @@ crontab -l
 ```
 ![Persistent Crontab](assets/pers-crontab.png)
 *Figure 18: Persistent cron job injected — simulating adversary callback mechanism (T1053.003)*
+
 ### Detection
 Wazuh File Integrity Monitoring detected the crontab modification in real time through syscheck configured on `/var/spool/cron`.
 
